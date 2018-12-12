@@ -74,14 +74,15 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 	elif clf_name == "Random Forest":
 		tuned_parameters = {"n_estimators": [250, 500, 1000]}
 		clf = RandomForestClassifier()
-		
+	
+	"""
 	elif clf_name == "AdaBoost":
 		tuned_parameters = {"base_estimator__criterion" : ["gini", "entropy"],
               "base_estimator__splitter" :   ["best", "random"],
               "n_estimators": [1, 2]
              }
 		clf = AdaBoostClassifier()
-		
+	"""	
 	#elif clf_name == "MLP":
 	#	tuned_parameters = {'hidden_layer_sizes': [(256,), (512,), (128, 256, 128,)]}
 	#	clf = MLPClassifier()
@@ -167,7 +168,8 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 	
 	count = 1
 	
-	clf_names = ["Nearest Neighbors", "SVM", "Decision Tree", "Random Forest", "Naive Bayes", "MLP", "Gaussian Process", "AdaBoost", "QDA"]
+	clf_names_not_tuned = ["Naive Bayes", "MLP", "Gaussian Process", "QDA", "AdaBoost"]
+	clf_names = ["Nearest Neighbors", "SVM", "Decision Tree", "Random Forest", "AdaBoost", "Naive Bayes", "MLP", "Gaussian Process", "QDA"]
 	clf_scores_dict = dict.fromkeys(clf_names)
 	for item in clf_scores_dict:
 		clf_scores_dict[item] = []
@@ -184,7 +186,26 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 		most_common_classes = find_10_most_common_classes_train(y_train)
 		
 		for clf_name in clf_names:
-			clf = fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test)
+			print(clf_name)
+			
+			if clf_name in clf_names_not_tuned:
+				if clf_name == "Naive Bayes":
+					clf = GaussianNB()
+					clf.fit(X_train, y_train)
+				elif clf_name == "MLP":
+					clf = MLPClassifier()
+					clf.fit(X_train, y_train)
+				elif clf_name == "Gaussian Process":
+					clf = GaussianProcessClassifier()
+					clf.fit(X_train, y_train)
+				#elif clf_name == "QDA":
+				#	clf = QuadraticDiscriminantAnalysis()
+				#	clf.fit(X_train, y_train)
+				else:
+					clf = AdaBoostClassifier()
+					clf.fit(X_train, y_train)
+			else:
+				clf = fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test)
 			
 			#score = clf.score(X_test, y_test)
 			score = get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, clf)
