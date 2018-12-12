@@ -52,7 +52,7 @@ def get_corpus(ids, conn, args, n_grams = False):
 			df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
 		count += 1
 	"""
-	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	sql = "select {0}.id as poi_id, {0}.name_u as name, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	
 	corpus = []
@@ -89,10 +89,10 @@ def get_top_k_features(corpus, args):
 			
 	popular_words = sorted(word_counter, key = word_counter.get, reverse = True)	
 	
-	
+	"""
 	import csv
 	
-	"""
+	
 	with open('word_features_ranked.csv', 'a') as csvFile:
 		writer = csv.writer(csvFile)
 		for word in popular_words:
@@ -124,7 +124,7 @@ def get_poi_top_k_features(ids, conn, top_k_features, args):
 			df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
 		count += 1
 	"""
-	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	sql = "select {0}.id as poi_id, {0}.name_u as name, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	
 	poi_id_to_boolean_top_k_features_dict = dict.fromkeys(df['poi_id'])
@@ -147,10 +147,10 @@ def get_features_top_k(ids, conn, args):
 	corpus = get_corpus(ids, conn, args)
 	
 	# find top k features
-	top_k_features = get_top_k_features(ids, corpus, args)
+	top_k_features = get_top_k_features(corpus, args)
 		
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(conn, top_k_features, args)
+	return get_poi_top_k_features(ids, conn, top_k_features, args)
 	
 def get_features_top_k_ngrams(ids, conn, args):
 	""" This function extracts frequent n-grams (n is specified) from the whole 

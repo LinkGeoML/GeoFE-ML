@@ -47,7 +47,7 @@ def get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, cl
 	
 	return float(count) / float(most_common_classes_count)
 
-def fine_tune_parameters_given_clf(clf_name):
+def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 	
 	#scores = ['precision', 'recall']
 	scores = ['accuracy']
@@ -99,7 +99,7 @@ def fine_tune_parameters_given_clf(clf_name):
 		print()
 
 		clf = GridSearchCV(clf, tuned_parameters, cv=4,
-						   scoring='%s_macro' % score)
+						   scoring='%s' % score)
 		clf.fit(X_train, y_train)
 
 		print("Best parameters set found on development set:")
@@ -175,13 +175,16 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 	# split data into train, test
 	for train_ids, test_ids in kf.split(poi_ids):
 		
+		train_ids = [train_id + 1 for train_id in train_ids]
+		test_ids = [test_id + 1 for test_id in test_ids]
+		
 		# get train and test sets
 		X_train, y_train, X_test, y_test = get_train_test_sets(conn, args, train_ids, test_ids)
 		
 		most_common_classes = find_10_most_common_classes_train(y_train)
 		
 		for clf_name in clf_names:
-			clf = fine_tune_parameters_given_clf(clf_name)
+			clf = fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test)
 			
 			#score = clf.score(X_test, y_test)
 			score = get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, clf)

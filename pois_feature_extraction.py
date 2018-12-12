@@ -114,6 +114,7 @@ def get_street_id_to_closest_pois_boolean_and_counts_per_label_dict(ids, conn, t
 		"""
 		
 		sql = "select {0}.id as poi_id, {1}.id as edge_id, {0}.geom, ST_Distance(ST_Transform({0}.geom, 32634), {1}.geom) as dist from {0}, {1} where {1}.id = {2} and {0}.id in {3}".format(args["pois_tbl_name"], args["roads_tbl_name"], row['edge_id'], tuple(ids))
+		dist_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 		
 		for index, row in dist_df.iterrows():
 			if row['dist'] < threshold:
@@ -266,10 +267,10 @@ def get_poi_id_to_boolean_and_counts_per_class_dict(ids, conn, num_of_labels, po
 		count += 1
 	"""
 	
-	print(ids)
+	#print(ids)
 	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-	print(df)
+	#print(df)
 	
 	poi_id_to_label_boolean_counts_dict = dict.fromkeys(df['poi_id'])
 	

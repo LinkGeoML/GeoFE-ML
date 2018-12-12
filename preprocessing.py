@@ -57,9 +57,16 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	X_train = []
 	X_test = []
 	
+	#print(poi_ids_train)
+	#print(poi_ids_test)
+		
 	for poi_id in poi_ids_train:
+		#print(poi_id)
+		#print(poi_id_to_encoded_labels_dict[poi_id][0][0])
 		y_train.append(poi_id_to_encoded_labels_dict[poi_id][0][0])
 	for poi_id in poi_ids_test:
+		#print(poi_id)
+		#print(poi_id_to_encoded_labels_dict[poi_id][0][0])
 		y_test.append(poi_id_to_encoded_labels_dict[poi_id][0][0])
 		
 	y_train = np.asarray(y_train)
