@@ -11,14 +11,26 @@ from feml import *
 import nltk
 
 def find_ngrams(token_list, n):
+	#print(token_list)
 	s = []
-    
-	#for token in token_list:
-	#	for i in range(0, len(token)- n + 1):
-	#		s.append(token[i:n+i])
+	whitespace_embedder = ""
+	for i in range(n-1):
+		whitespace_embedder += " "
+	
+	for i in range(len(token_list)):
+		token_list[i] = whitespace_embedder + token_list[i] + whitespace_embedder
+	
+	for token in token_list:
+		for i in range(len(token)- n + 1):
+			s.append(token[i:n+i])
+			
+	return s
 	
 	#for i in range(len(token_list) - n + 1):
 	#	s.append(token_list[i] + " " + token_list[i+1])
+
+def find_ngrams_tokens(token_list, n):
+	s = []
 	
 	for i in range(len(token_list)):
 		if i == 0:
@@ -31,7 +43,7 @@ def find_ngrams(token_list, n):
 	
 	return s
 
-def get_corpus(ids, conn, args, n_grams = False):
+def get_corpus(ids, conn, args, n_grams = False, n_grams_tokens = False):
 	
 	""" This function queries the names of all the pois in the dataset
 		and creates a corpus from the words in them"""
@@ -40,18 +52,6 @@ def get_corpus(ids, conn, args, n_grams = False):
 	
 	# get all poi details
 	
-	"""
-	count = 0
-	for id in ids:
-		sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id = {1}".format(args["pois_tbl_name"], id)
-		if count == 0:
-			df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-		else:
-			temp_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-			frames = [df, temp_df]
-			df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
-		count += 1
-	"""
 	sql = "select {0}.id as poi_id, {0}.name_u as name, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	
@@ -65,20 +65,20 @@ def get_corpus(ids, conn, args, n_grams = False):
 		not_stopwords, stopwords = normalize_str(row['name'])
 		not_stopwords = list(not_stopwords)
 		
-		if n_grams:
+		if n_grams_tokens:
+			not_stopwords = find_ngrams_tokens(not_stopwords, int(args["n"]))
+		elif n_grams:
 			not_stopwords = find_ngrams(not_stopwords, int(args["n"]))		
 		corpus.append(not_stopwords)
 		
 	corpus = [elem for sublist in corpus for elem in sublist]
 	
-	if not n_grams:
+	if not n_grams and not n_grams_tokens:
 		corpus = [elem for elem in corpus if len(elem) > 2]
-	
-	#print(corpus)
-	
+		
 	return corpus
 	
-def get_top_k_features(corpus, args):
+def get_top_k_features(corpus, args, k):
 	word_counter = {}
 	
 	for word in corpus:
@@ -105,31 +105,19 @@ def get_top_k_features(corpus, args):
 
 	#print(popular_words)
 	
-	top_k = popular_words[:int(args["k"])]
+	top_k = popular_words[:int(k)]
 	
 	return top_k
 
-def get_poi_top_k_features(ids, conn, top_k_features, args):
+def get_poi_top_k_features(ids, conn, top_k_features, args, k):
 	# get all poi details
 	
-	"""
-	count = 0
-	for id in ids:
-		sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id = {1}".format(args["pois_tbl_name"], id)
-		if count == 0:
-			df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-		else:
-			temp_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-			frames = [df, temp_df]
-			df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
-		count += 1
-	"""
 	sql = "select {0}.id as poi_id, {0}.name_u as name, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	
 	poi_id_to_boolean_top_k_features_dict = dict.fromkeys(df['poi_id'])
 	for poi_id in poi_id_to_boolean_top_k_features_dict:
-		poi_id_to_boolean_top_k_features_dict[poi_id] = [0 for _ in range(0, int(args["k"]))]
+		poi_id_to_boolean_top_k_features_dict[poi_id] = [0 for _ in range(0, int(k))]
 	
 	for index, row in df.iterrows():
 		 for i in range(len(top_k_features)):
@@ -138,7 +126,7 @@ def get_poi_top_k_features(ids, conn, top_k_features, args):
 				 
 	return poi_id_to_boolean_top_k_features_dict
 
-def get_features_top_k(ids, conn, args):
+def get_features_top_k(ids, conn, args, k):
 	""" This function extracts frequent terms from the whole corpus of POI names. 
 		During this process, it optionally uses stemming. Selects the top-K most 
 		frequent terms and creates feature positions for each of these terms."""
@@ -147,24 +135,42 @@ def get_features_top_k(ids, conn, args):
 	corpus = get_corpus(ids, conn, args)
 	
 	# find top k features
-	top_k_features = get_top_k_features(corpus, args)
+	top_k_features = get_top_k_features(corpus, args, k)
 		
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(ids, conn, top_k_features, args)
+	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
 	
-def get_features_top_k_ngrams(ids, conn, args):
+def get_features_top_k_ngrams(ids, conn, args, k):
 	""" This function extracts frequent n-grams (n is specified) from the whole 
-	corpus of POI names. It selects the top-K most frequent n-grams and creates
+	corpus of POI names. It selects the top-K most frequent n-gram tokens and creates
 	feature positions for each of these terms."""
 	
 	# get corpus
 	corpus = get_corpus(ids, conn, args, n_grams = True)
+	#print("Length of corpus is {0}".format(len(corpus)))
 	
 	# find top k features
-	top_k_features = get_top_k_features(corpus, args)
+	top_k_features = get_top_k_features(corpus, args, k)
+	
+	#print(top_k_features)
+		
+	# get boolean values dictating whether pois have or haven't any of the top features in their names
+	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
+	
+	
+def get_features_top_k_ngrams_tokens(ids, conn, args, k):
+	""" This function extracts frequent n-grams (n is specified) from the whole 
+	corpus of POI names. It selects the top-K most frequent n-gram tokens and creates
+	feature positions for each of these terms."""
+	
+	# get corpus
+	corpus = get_corpus(ids, conn, args, n_grams_tokens = True)
+	
+	# find top k features
+	top_k_features = get_top_k_features(corpus, args, k)
 	
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(ids, conn, top_k_features, args)
+	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
 	
 def main():
 	# construct the argument parse and parse the arguments

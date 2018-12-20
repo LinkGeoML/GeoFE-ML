@@ -46,10 +46,11 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	poi_id_to_class_code_coordinates_dict = get_poi_id_to_class_code_coordinates_dict(conn, args)
 	
 	# we read the different labels
-	class_codes_set = get_class_codes_set()
+	class_codes_set = get_class_codes_set(args)
 	
 	# we encode them so we can have a more compact representation of them
 	poi_id_to_encoded_labels_dict, encoded_labels_set = get_poi_id_to_encoded_labels_dict(class_codes_set, poi_id_to_class_code_coordinates_dict)
+	#print(encoded_labels_set)
 	
 	y_train = []
 	y_test = []
@@ -71,27 +72,33 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 		
 	y_train = np.asarray(y_train)
 	y_test = np.asarray(y_test)	
-		
-	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args)
-	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args)
+	
+	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args, args["k_ngrams"])
+	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args, args["k_tokens"])
+	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_train, conn, args, args["k_tokens"])
+	
 	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_train, conn, args, float(args["threshold"]))
 	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_train, conn, args, float(args["threshold"]))
 	
 	for poi_id in poi_ids_train:
 		temp_feature_list1 = [item for sublist in closest_pois_boolean_and_counts_per_label[poi_id] for item in sublist]
 		temp_feature_list2 = [item for sublist in closest_pois_boolean_and_counts_per_label_streets[poi_id] for item in sublist]
-		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
+		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
+		#feature_list = poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
 		X_train.append(feature_list)
 	
-	poi_id_to_word_features = get_features_top_k(poi_ids_test, conn, args)
-	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_test, conn, args)
+	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_test, conn, args, args["k_ngrams"])
+	poi_id_to_word_features = get_features_top_k(poi_ids_test, conn, args, args["k_tokens"])
+	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_test, conn, args, args["k_tokens"])
+	
 	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_test, conn, args, float(args["threshold"]))
 	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_test, conn, args, float(args["threshold"]))
 	
 	for poi_id in poi_ids_test:
 		temp_feature_list1 = [item for sublist in closest_pois_boolean_and_counts_per_label[poi_id] for item in sublist]
 		temp_feature_list2 = [item for sublist in closest_pois_boolean_and_counts_per_label_streets[poi_id] for item in sublist]
-		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
+		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
+		#feature_list = poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
 		X_test.append(feature_list)
 
 	X_train = np.asarray(X_train)
@@ -101,6 +108,7 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	print(X_test.shape)
 		
 	return X_train, y_train, X_test, y_test
+	
 
 def standardize_data(X_train, X_test):
 	from sklearn.preprocessing import StandardScaler

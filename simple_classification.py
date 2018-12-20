@@ -29,28 +29,25 @@ from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
 from sklearn.model_selection import GridSearchCV
 from sklearn.metrics import classification_report
+from sklearn.metrics import f1_score
 
 np.random.seed(1234)
 
 def get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, clf):
-	y_pred = clf.predict(X_test)
 	
-	count = 0
-	most_common_classes_count = 0
+	top_class_count = 0
+	for label in y_test:
+		if label == most_common_classes[0]:
+			top_class_count += 1
 	
-	for truth, pred in zip(y_test, y_pred):
-		if truth in most_common_classes:
-			if truth == pred:
-				count += 1
-				
-			most_common_classes_count += 1
-	
-	return float(count) / float(most_common_classes_count)
+	print("Baseline accuracy: {0}", format(float(top_class_count) / float(y_test.shape[0])))
+	y_pred = clf.predict(X_test)	
+	return accuracy_score(y_test, y_pred), f1_score(y_test, y_pred, average='weighted'), f1_score(y_test, y_pred, average='macro')
 
 def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 	
 	#scores = ['precision', 'recall']
-	scores = ['accuracy']
+	scores = ['accuracy']#, 'f1_macro', 'f1_micro']
 	
 	if clf_name == "SVM":
 		tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
@@ -82,18 +79,19 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
               "n_estimators": [1, 2]
              }
 		clf = AdaBoostClassifier()
-	"""	
-	#elif clf_name == "MLP":
-	#	tuned_parameters = {'hidden_layer_sizes': [(256,), (512,), (128, 256, 128,)]}
-	#	clf = MLPClassifier()
-		
-	#elif clf_name == "Gaussian Process":
-	#	
-	#	clf = GaussianProcessClassifier()
 	
-	#elif clf_name == "QDA":
-	#	tuned_parameters = 
-	#	clf = QuadraticDiscriminantAnalysis()
+	elif clf_name == "MLP":
+		tuned_parameters = {'hidden_layer_sizes': [(256,), (512,), (128, 256, 128,)]}
+		clf = MLPClassifier()
+		
+	elif clf_name == "Gaussian Process":
+		
+		clf = GaussianProcessClassifier()
+	
+	elif clf_name == "QDA":
+		tuned_parameters = 
+		clf = QuadraticDiscriminantAnalysis()
+	"""
 		
 	for score in scores:
 		print("# Tuning hyper-parameters for %s" % score)
@@ -118,46 +116,6 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 		
 	return clf
 		
-def default_parameters_5_fold(X_train, X_test, y_train, y_test):
-	
-	X = list(np.concatenate((X_train, X_test), axis=0))
-	y = list(np.concatenate((y_train, y_test), axis=0))
-	
-	c = list(zip(X, y))
-
-	random.shuffle(c)
-
-	X, y = zip(*c)
-	
-	X = np.asarray(X)
-	y = np.asarray(y)
-	
-	kf = KFold(n_splits=5)
-	count = 1
-	for train_index, test_index in kf.split(X):
-		X_train, X_test = X[train_index], X[test_index]
-		y_train, y_test = y[train_index], y[test_index]
-		
-		print("Displaying results for fold {0}".format(count))
-		
-		names = ["Nearest Neighbors", "Linear SVM", "RBF SVM", "Decision Tree", "Random Forest", "Naive Bayes"]
-
-		classifiers = [
-			KNeighborsClassifier(3),
-			SVC(kernel="linear", C=0.025),
-			SVC(gamma=2, C=1),
-			DecisionTreeClassifier(max_depth=5),
-			RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
-			GaussianNB()]
-		
-		# iterate over classifiers and produce results
-		for name, clf in zip(names, classifiers):
-			clf.fit(X_train, y_train)
-			score = clf.score(X_test, y_test)
-			print("Accuracy Score of {0} classifier: {1}".format(name, score))
-			
-		count += 1
-		
 def tuned_parameters_5_fold(poi_ids, conn, args):
 	
 	# Shuffle ids
@@ -170,9 +128,9 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 	
 	clf_names_not_tuned = ["Naive Bayes", "MLP", "Gaussian Process", "QDA", "AdaBoost"]
 	clf_names = ["Nearest Neighbors", "SVM", "Decision Tree", "Random Forest", "AdaBoost", "Naive Bayes", "MLP", "Gaussian Process", "QDA"]
-	clf_scores_dict = dict.fromkeys(clf_names)
-	for item in clf_scores_dict:
-		clf_scores_dict[item] = []
+	#clf_scores_dict = dict.fromkeys(clf_names)
+	#for item in clf_scores_dict:
+	#	clf_scores_dict[item] = [[], [], []]
 	
 	# split data into train, test
 	for train_ids, test_ids in kf.split(poi_ids):
@@ -208,14 +166,16 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 				clf = fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test)
 			
 			#score = clf.score(X_test, y_test)
-			score = get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, clf)
-			clf_scores_dict[clf_name].append(score)
-			print("Test Accuracy Score of {0} classifier for fold number {1}: {2}".format(clf_name, count, score))
+			accuracy, f1_score_micro, f1_score_macro = get_score_for_10_most_common_classes(X_test, y_test, most_common_classes, clf)
+			#clf_scores_dict[clf_name].append()
+			print("Test Accuracy Score of {0} classifier for fold number {1}: {2}".format(clf_name, count, accuracy))
+			print("Micro F1 Score of {0} classifier for fold number {1}: {2}".format(clf_name, count, f1_score_micro))
+			print("Macro F1 Score of {0} classifier for fold number {1}: {2}".format(clf_name, count, f1_score_macro))
 			
 		count += 1
 		
-	for clf_name in clf_names:	
-		print("Mean Test Accuracy Score of {0} classifier across folds: {1}". format(clf_name, sum(map(float,clf_scores_dict[clf_name])) / 5.0))
+	#for clf_name in clf_names:	
+	#	print("Mean Test Accuracy Score of {0} classifier across folds: {1}". format(clf_name, sum(map(float,clf_scores_dict[clf_name])) / 5.0))
 				
 def main():
 	# construct the argument parse and parse the arguments
@@ -226,10 +186,14 @@ def main():
 		help="name of table containing roads information")
 	ap.add_argument("-threshold", "--threshold", required=True,
 		help="threshold for distance-specific features")
-	ap.add_argument("-k", "--k", required=True,
+	ap.add_argument("-k_ngrams", "--k_ngrams", required=True,
+		help="the number of the desired top-k most frequent ngrams")
+	ap.add_argument("-k_tokens", "--k_tokens", required=True,
 		help="the number of the desired top-k most frequent tokens")
 	ap.add_argument("-n", "--n", required=True,
 		help="the n-gram size")
+	ap.add_argument("-level", "--level", required=True,
+		help="the class label level")
 	args = vars(ap.parse_args())
 	
 	# call the appropriate function to connect to the database

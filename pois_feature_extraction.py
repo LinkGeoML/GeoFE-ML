@@ -18,19 +18,6 @@ def get_poi_id_to_closest_street_id_dict(ids, conn, args):
 	*** 		  its keys and their corresponding closest 
 	***			  road id as its value.
 	"""
-	
-	"""
-	count = 0
-	for id in ids:
-		sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id = {1}".format(args["pois_tbl_name"], id)
-		if count == 0:
-			df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-		else:
-			temp_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-			frames = [df, temp_df]
-			df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
-		count += 1
-	"""
 		
 	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
@@ -39,7 +26,7 @@ def get_poi_id_to_closest_street_id_dict(ids, conn, args):
 	# also get its class_code
 	poi_id_to_edge_id_dict = dict.fromkeys(df['poi_id'])
 	for index, row in df.iterrows():
-		poi_id_to_edge_id_dict[row['poi_id']] = [int(row['class_code']), 0]
+		poi_id_to_edge_id_dict[row['poi_id']] = [row['class_code'], 0]
 		
 	for index, row in df.iterrows():
 		# for each poi find its distance to all the roads in the dataset
@@ -62,29 +49,22 @@ def get_street_id_to_closest_pois_boolean_and_counts_per_label_dict(ids, conn, t
 	"""
 	
 	# get all the pois
-	"""
-	count = 0
-	for id in ids:
-		sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id = {1}".format(args["pois_tbl_name"], id)
-		if count == 0:
-			df_pois = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-		else:
-			temp_df_pois = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-			frames = [df_pois, temp_df_pois]
-			df_pois = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
-		count += 1
-	"""
 	
-	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	if int(args['level']) == 1:
+		sql = "select {0}.id as poi_id, {0}.theme as class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	elif int(args['level']) == 2:
+		sql = "select {0}.id as poi_id, {0}.class_name as class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	else:
+		sql = "select {0}.id as poi_id, {0}.subclass_n as class_code, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df_pois = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	
 	# create a dictionary with the poi ids as its keys
 	id_dict = dict.fromkeys(df_pois['poi_id'])
 	for index, row in df_pois.iterrows():
-		id_dict[row['poi_id']] = [int(row['class_code']), 0, 0]
+		id_dict[row['poi_id']] = [row['class_code'], 0, 0]
 	
 	# get the class codes set and encode the class codes to labels
-	class_codes_set = get_class_codes_set()
+	class_codes_set = get_class_codes_set(args)
 	id_to_encoded_labels_dict, encoded_labels_set = get_poi_id_to_encoded_labels_dict(class_codes_set, id_dict)
 	num_of_labels = len(encoded_labels_set)
 	
@@ -101,17 +81,6 @@ def get_street_id_to_closest_pois_boolean_and_counts_per_label_dict(ids, conn, t
 	for index, row in df_edges.iterrows():
 		# for each road find its distance to all the pois in the dataset
 		count = 0
-		"""
-		for id in ids:
-			sql = "select {0}.id as poi_id, {1}.id as edge_id, {0}.geom, ST_Distance(ST_Transform({0}.geom, 32634), {1}.geom) as dist from {0}, {1} where {1}.id = {2} and {0}.id = {3}".format(args["pois_tbl_name"], args["roads_tbl_name"], row['edge_id'], id)
-			if count == 0:
-				dist_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-			else:
-				temp_dist_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
-				frames = [dist_df, temp_dist_df]
-				dist_df = gpd.GeoDataFrame( pd.concat( frames, ignore_index=True) )
-			count += 1
-		"""
 		
 		sql = "select {0}.id as poi_id, {1}.id as edge_id, {0}.geom, ST_Distance(ST_Transform({0}.geom, 32634), {1}.geom) as dist from {0}, {1} where {1}.id = {2} and {0}.id in {3}".format(args["pois_tbl_name"], args["roads_tbl_name"], row['edge_id'], tuple(ids))
 		dist_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
@@ -144,7 +113,7 @@ def update_poi_id_dictionary(poi_id_to_street_id_dict, street_id_to_closest_pois
 	return poi_id_to_closest_pois_boolean_count_dict
 	
 	
-def get_closest_pois_boolean_and_counts_per_label_streets(ids, conn, args, threshold = 0):
+def get_closest_pois_boolean_and_counts_per_label_streets(ids, conn, args, threshold = 1000.0):
 	
 	# get the dictionary mapping each poi id to that of its closest road
 	poi_id_to_closest_street_id_dict = get_poi_id_to_closest_street_id_dict(ids, conn, args)
@@ -154,7 +123,6 @@ def get_closest_pois_boolean_and_counts_per_label_streets(ids, conn, args, thres
 	# pois located within threshold distance from it
 	# (this will resemble the get_poi_id_to_boolean_and_counts_per_class_dict
 	#  function but with road ids as the keys of the dictionary)
-	threshold = 1000.0
 	street_id_to_label_boolean_counts_dict = get_street_id_to_closest_pois_boolean_and_counts_per_label_dict(ids, conn, threshold, args)
 	
 	# construct a dictionary similar to the one returned by get_poi_id_to_boolean_and_counts_per_class_dict
@@ -164,7 +132,7 @@ def get_closest_pois_boolean_and_counts_per_label_streets(ids, conn, args, thres
 	return poi_id_to_closest_pois_boolean_count_dict
 	
 	
-def get_class_codes_set():
+def get_class_codes_set(args):
 	
 	"""
 	*** This function is responsible for reading the excel file
@@ -176,10 +144,17 @@ def get_class_codes_set():
 	import pandas as pd
 	
 	# read the file containing the class codes
-	df = pd.read_excel('/home/nikos/Desktop/Datasets/GeoData_PoiMarousi/GeoData_poiClasses.xlsx', sheet_name=None)
+	df = pd.read_excel('/home/nikos/Desktop/Datasets/GeoData_PoiMarousi/GeoData_poiClasses.xlsx', sheet_name=None)		
 	
 	# store the class codes (labels) in the list
-	class_codes = list(df['poiClasses']['CLASS_CODE'])
+	if int(args['level']) == 1:
+		class_codes = list(df['poiClasses']['THEME'])
+		#print(class_codes)
+	elif int(args['level']) == 2:
+		class_codes = list(df['poiClasses']['CLASS_NAME'])
+	else:
+		class_codes = list(df['poiClasses']['SUBCLASS_N'].dropna())
+		#print(class_codes)
 	return class_codes
 	
 def get_poi_id_to_encoded_labels_dict(labels_set, id_dict):
@@ -216,15 +191,26 @@ def get_poi_id_to_class_code_coordinates_dict(conn, args):
 	*** list in the form of [< poi's class code >, < x coordinate > < y coordinate >]
 	*** as its values.
 	"""
+	# get the poi categories depending on level
+	if int(args['level']) == 1:
+		sql = "select {0}.id, {0}.theme, {0}.x, {0}.y, {0}.geom from {0}".format(args["pois_tbl_name"])
+	elif int(args['level']) == 2:
+		sql = "select {0}.id, {0}.class_name, {0}.x, {0}.y, {0}.geom from {0}".format(args["pois_tbl_name"])
+	else:
+		sql = "select {0}.id, {0}.subclass_n, {0}.x, {0}.y, {0}.geom from {0}".format(args["pois_tbl_name"])
 	
-	# get the pois
-	sql = "select {0}.id, {0}.class_code, {0}.x, {0}.y, {0}.geom from {0}".format(args["pois_tbl_name"])
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 
 	poi_id_to_class_code_coordinates_dict = dict.fromkeys(df['id'])
 	
+	
 	for index, row in df.iterrows():
-		poi_id_to_class_code_coordinates_dict[row['id']] = [int(row['class_code']), float(row['x']), float(row['y'])]
+		if int(args['level']) == 1:
+			poi_id_to_class_code_coordinates_dict[row['id']] = [row['theme'], float(row['x']), float(row['y'])]
+		elif int(args['level']) == 2:
+			poi_id_to_class_code_coordinates_dict[row['id']] = [row['class_name'], float(row['x']), float(row['y'])]
+		else:
+			poi_id_to_class_code_coordinates_dict[row['id']] = [row['subclass_n'], float(row['x']), float(row['y'])]
 	
 	return poi_id_to_class_code_coordinates_dict
 	
@@ -268,7 +254,13 @@ def get_poi_id_to_boolean_and_counts_per_class_dict(ids, conn, num_of_labels, po
 	"""
 	
 	#print(ids)
-	sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	if int(args['level']) == 1:
+		sql = "select {0}.id as poi_id, {0}.theme as class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	elif int(args['level']) == 2:
+		sql = "select {0}.id as poi_id, {0}.class_name as class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	else:
+		sql = "select {0}.id as poi_id, {0}.subclass_n as class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	#sql = "select {0}.id as poi_id, {0}.class_code, {0}.geom, {0}.x, {0}.y from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
 	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 	#print(df)
 	
@@ -293,7 +285,7 @@ def get_poi_id_to_boolean_and_counts_per_class_dict(ids, conn, num_of_labels, po
 	
 	return poi_id_to_label_boolean_counts_dict
 	
-def get_closest_pois_boolean_and_counts_per_label(ids, conn, args, threshold = 0):
+def get_closest_pois_boolean_and_counts_per_label(ids, conn, args, threshold = 1000.0):
 	
 	"""
 	*** This function returns a dictionary with the poi ids as its keys
@@ -311,7 +303,7 @@ def get_closest_pois_boolean_and_counts_per_label(ids, conn, args, threshold = 0
 	poi_id_to_class_code_coordinates_dict = get_poi_id_to_class_code_coordinates_dict(conn, args)
 	
 	# we read the different labels
-	class_codes_set = get_class_codes_set()
+	class_codes_set = get_class_codes_set(args)
 	
 	# we encode them so we can have a more compact representation of them
 	poi_id_to_encoded_labels_dict, encoded_labels_set = get_poi_id_to_encoded_labels_dict(class_codes_set, poi_id_to_class_code_coordinates_dict)
