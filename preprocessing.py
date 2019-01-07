@@ -73,6 +73,7 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	y_train = np.asarray(y_train)
 	y_test = np.asarray(y_test)	
 	
+	poi_id_to_class_centroid_similarities_train, encoded_labels_corpus_train = get_poi_id_to_class_centroid_similarities(poi_ids_train, poi_id_to_class_code_coordinates_dict, encoded_labels_set, conn, args, [])
 	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args, args["k_ngrams"])
 	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args, args["k_tokens"])
 	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_train, conn, args, args["k_tokens"])
@@ -80,13 +81,26 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_train, conn, args, float(args["threshold"]))
 	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_train, conn, args, float(args["threshold"]))
 	
+	count = 0
 	for poi_id in poi_ids_train:
+		#print(poi_id_to_class_centroid_similarities_train[poi_id])
 		temp_feature_list1 = [item for sublist in closest_pois_boolean_and_counts_per_label[poi_id] for item in sublist]
 		temp_feature_list2 = [item for sublist in closest_pois_boolean_and_counts_per_label_streets[poi_id] for item in sublist]
-		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
-		#feature_list = poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
+		
+		if count == 0:
+			print("poi id to nearby poi labels: {0}".format(len(temp_feature_list1)))
+			print("poi id to nearby street labels: {0}".format(len(temp_feature_list2)))
+			print("poi id to class centroid similarities: {0}".format(len(poi_id_to_class_centroid_similarities_train[poi_id])))
+			print("poi id to roken features: {0}".format(len(poi_id_to_word_features[poi_id])))
+			print("poi id to n-gram token features: {0}".format(len(poi_id_to_word_features_ngrams_tokens[poi_id])))
+			print("poi id to n-gram features: {0}".format(len(poi_id_to_word_features_ngrams[poi_id])))
+			
+		count += 1
+		
+		feature_list = poi_id_to_class_centroid_similarities_train[poi_id] + poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
 		X_train.append(feature_list)
 	
+	poi_id_to_class_centroid_similarities_test, encoded_labels_corpus_test = get_poi_id_to_class_centroid_similarities(poi_ids_test, poi_id_to_class_code_coordinates_dict, encoded_labels_set, conn, args, encoded_labels_corpus_train, test = True)
 	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_test, conn, args, args["k_ngrams"])
 	poi_id_to_word_features = get_features_top_k(poi_ids_test, conn, args, args["k_tokens"])
 	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_test, conn, args, args["k_tokens"])
@@ -97,8 +111,7 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	for poi_id in poi_ids_test:
 		temp_feature_list1 = [item for sublist in closest_pois_boolean_and_counts_per_label[poi_id] for item in sublist]
 		temp_feature_list2 = [item for sublist in closest_pois_boolean_and_counts_per_label_streets[poi_id] for item in sublist]
-		feature_list = poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
-		#feature_list = poi_id_to_word_features_ngrams[poi_id] + temp_feature_list1 + temp_feature_list2
+		feature_list = poi_id_to_class_centroid_similarities_test[poi_id] + poi_id_to_word_features[poi_id] + poi_id_to_word_features_ngrams[poi_id] + poi_id_to_word_features_ngrams_tokens[poi_id] + temp_feature_list1 + temp_feature_list2
 		X_test.append(feature_list)
 
 	X_train = np.asarray(X_train)

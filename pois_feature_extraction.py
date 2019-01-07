@@ -155,6 +155,9 @@ def get_class_codes_set(args):
 	else:
 		class_codes = list(df['poiClasses']['SUBCLASS_N'].dropna())
 		#print(class_codes)
+		
+	#print(np.unique(class_codes))
+	class_codes = list(set(class_codes))
 	return class_codes
 	
 def get_poi_id_to_encoded_labels_dict(labels_set, id_dict):

@@ -172,6 +172,57 @@ def get_features_top_k_ngrams_tokens(ids, conn, args, k):
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
 	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
 	
+def get_poi_id_to_class_centroid_similarities(ids, poi_id_to_encoded_labels_dict, encoded_labels_set, conn, args, encoded_labels_corpus_dict, test = False):
+		
+	sql = "select {0}.id as poi_id, {0}.name_u as name, {0}.geom from {0} where {0}.id in {1}".format(args["pois_tbl_name"], tuple(ids))
+	df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
+	
+	if not test:
+		encoded_labels_corpus_dict = dict.fromkeys(encoded_labels_set)
+		for key in encoded_labels_corpus_dict:
+			encoded_labels_corpus_dict[key] = []
+		
+		for poi_id, name in zip(df['poi_id'], df['name']):
+			# perform stemming based on the language it's written in
+			stemmed_word = perform_stemming(name, lang_detect=True)
+			# break it in tokens
+			not_stopwords, stopwords = normalize_str(name)
+			not_stopwords = list(not_stopwords)
+			encoded_labels_corpus_dict[poi_id_to_encoded_labels_dict[poi_id][0][0]].append(not_stopwords)
+	
+		for key in encoded_labels_corpus_dict:
+			encoded_labels_corpus_dict[key] = [item for sublist in encoded_labels_corpus_dict[key] for item in sublist]
+	#print(encoded_labels_corpus_dict)
+		
+	poi_id_to_similarity_per_label = dict.fromkeys(ids)
+	for poi_id in poi_id_to_similarity_per_label:
+		poi_id_to_similarity_per_label[poi_id] = []
+	
+	count = 0
+	
+	for poi_id, name in zip(df['poi_id'], df['name']):
+		# perform stemming based on the language it's written in
+		stemmed_word = perform_stemming(name, lang_detect=True)
+		# break it in tokens
+		not_stopwords, stopwords = normalize_str(name)
+		not_stopwords = list(not_stopwords)
+		
+		for label in encoded_labels_corpus_dict:
+			for token in not_stopwords:
+				if token in encoded_labels_corpus_dict[label]:
+					count += 1
+			
+			if len(encoded_labels_corpus_dict[label]) == 0:
+				corpus_length = 1
+			else:
+				corpus_length = len(encoded_labels_corpus_dict[label])
+			similarity = float(count) / float(corpus_length)
+			poi_id_to_similarity_per_label[poi_id].append(similarity)
+			count = 0
+			
+	return poi_id_to_similarity_per_label, encoded_labels_corpus_dict
+		
+	
 def main():
 	# construct the argument parse and parse the arguments
 	ap = argparse.ArgumentParser()
