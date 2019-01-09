@@ -74,12 +74,12 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 	y_test = np.asarray(y_test)	
 	
 	poi_id_to_class_centroid_similarities_train, encoded_labels_corpus_train = get_poi_id_to_class_centroid_similarities(poi_ids_train, poi_id_to_class_code_coordinates_dict, encoded_labels_set, conn, args, [])
-	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args, args["k_ngrams"])
-	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args, args["k_tokens"])
-	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_train, conn, args, args["k_tokens"])
+	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args, float(args["k_ngrams"]))
+	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args, float(args["k_tokens"]))
+	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_train, conn, args, float(args["k_tokens"]))
 	
-	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_train, conn, args, float(args["threshold"]))
-	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_train, conn, args, float(args["threshold"]))
+	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_train, conn, args, float(args["threshold_pois"]))
+	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_train, conn, args, float(args["threshold_streets"]))
 	
 	count = 0
 	for poi_id in poi_ids_train:
@@ -101,12 +101,12 @@ def get_train_test_sets(conn, args, poi_ids_train, poi_ids_test):
 		X_train.append(feature_list)
 	
 	poi_id_to_class_centroid_similarities_test, encoded_labels_corpus_test = get_poi_id_to_class_centroid_similarities(poi_ids_test, poi_id_to_class_code_coordinates_dict, encoded_labels_set, conn, args, encoded_labels_corpus_train, test = True)
-	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_test, conn, args, args["k_ngrams"])
-	poi_id_to_word_features = get_features_top_k(poi_ids_test, conn, args, args["k_tokens"])
-	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_test, conn, args, args["k_tokens"])
+	poi_id_to_word_features_ngrams = get_features_top_k_ngrams(poi_ids_train, conn, args, float(args["k_ngrams"]), poi_ids_test)
+	poi_id_to_word_features = get_features_top_k(poi_ids_train, conn, args, float(args["k_tokens"]), poi_ids_test)
+	poi_id_to_word_features_ngrams_tokens = get_features_top_k_ngrams_tokens(poi_ids_train, conn, args, float(args["k_tokens"]), poi_ids_test)
 	
-	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_test, conn, args, float(args["threshold"]))
-	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_test, conn, args, float(args["threshold"]))
+	closest_pois_boolean_and_counts_per_label = get_closest_pois_boolean_and_counts_per_label(poi_ids_test, conn, args, float(args["threshold_pois"]))
+	closest_pois_boolean_and_counts_per_label_streets = get_closest_pois_boolean_and_counts_per_label_streets(poi_ids_test, conn, args, float(args["threshold_streets"]))
 	
 	for poi_id in poi_ids_test:
 		temp_feature_list1 = [item for sublist in closest_pois_boolean_and_counts_per_label[poi_id] for item in sublist]

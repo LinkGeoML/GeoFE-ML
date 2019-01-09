@@ -13,25 +13,29 @@ import nltk
 def find_ngrams(token_list, n):
 	#print(token_list)
 	s = []
+	
+	"""
 	whitespace_embedder = ""
 	for i in range(n-1):
 		whitespace_embedder += " "
 	
 	for i in range(len(token_list)):
 		token_list[i] = whitespace_embedder + token_list[i] + whitespace_embedder
+	"""
 	
 	for token in token_list:
 		for i in range(len(token)- n + 1):
 			s.append(token[i:n+i])
-			
-	return s
 	
-	#for i in range(len(token_list) - n + 1):
-	#	s.append(token_list[i] + " " + token_list[i+1])
+	return s
 
 def find_ngrams_tokens(token_list, n):
 	s = []
 	
+	
+	for i in range(len(token_list)- n + 1):
+		s.append(token_list[i] + " " + token_list[i+1])
+	"""
 	for i in range(len(token_list)):
 		if i == 0:
 			s.append(token_list[i] + " ")
@@ -39,7 +43,8 @@ def find_ngrams_tokens(token_list, n):
 			s.append(" " + token_list[i])
 		else:
 			s.append(" " + token_list[i])
-			s.append(token_list[i] + " ")
+			#s.append(token_list[i] + " ")
+	"""
 	
 	return s
 
@@ -66,7 +71,7 @@ def get_corpus(ids, conn, args, n_grams = False, n_grams_tokens = False):
 		not_stopwords = list(not_stopwords)
 		
 		if n_grams_tokens:
-			not_stopwords = find_ngrams_tokens(not_stopwords, int(args["n"]))
+			not_stopwords = find_ngrams_tokens(not_stopwords, int(args["n_tokens"]))
 		elif n_grams:
 			not_stopwords = find_ngrams(not_stopwords, int(args["n"]))		
 		corpus.append(not_stopwords)
@@ -104,10 +109,10 @@ def get_top_k_features(corpus, args, k):
 	"""
 
 	#print(popular_words)
+	k_new = int(k * len(popular_words))
+	top_k = popular_words[:k_new]
 	
-	top_k = popular_words[:int(k)]
-	
-	return top_k
+	return top_k, k_new
 
 def get_poi_top_k_features(ids, conn, top_k_features, args, k):
 	# get all poi details
@@ -126,7 +131,7 @@ def get_poi_top_k_features(ids, conn, top_k_features, args, k):
 				 
 	return poi_id_to_boolean_top_k_features_dict
 
-def get_features_top_k(ids, conn, args, k):
+def get_features_top_k(ids, conn, args, k, test_ids = None):
 	""" This function extracts frequent terms from the whole corpus of POI names. 
 		During this process, it optionally uses stemming. Selects the top-K most 
 		frequent terms and creates feature positions for each of these terms."""
@@ -135,12 +140,15 @@ def get_features_top_k(ids, conn, args, k):
 	corpus = get_corpus(ids, conn, args)
 	
 	# find top k features
-	top_k_features = get_top_k_features(corpus, args, k)
+	top_k_features, k_feat = get_top_k_features(corpus, args, k)
 		
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
+	if test_ids == None:
+		return get_poi_top_k_features(ids, conn, top_k_features, args, k_feat)
+	else:
+		return get_poi_top_k_features(test_ids, conn, top_k_features, args, k_feat)
 	
-def get_features_top_k_ngrams(ids, conn, args, k):
+def get_features_top_k_ngrams(ids, conn, args, k, test_ids = None):
 	""" This function extracts frequent n-grams (n is specified) from the whole 
 	corpus of POI names. It selects the top-K most frequent n-gram tokens and creates
 	feature positions for each of these terms."""
@@ -150,15 +158,16 @@ def get_features_top_k_ngrams(ids, conn, args, k):
 	#print("Length of corpus is {0}".format(len(corpus)))
 	
 	# find top k features
-	top_k_features = get_top_k_features(corpus, args, k)
-	
-	#print(top_k_features)
-		
+	top_k_features, k_feat = get_top_k_features(corpus, args, k)
+				
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
+	if test_ids == None:
+		return get_poi_top_k_features(ids, conn, top_k_features, args, k_feat)
+	else:
+		return get_poi_top_k_features(test_ids, conn, top_k_features, args, k_feat)
 	
 	
-def get_features_top_k_ngrams_tokens(ids, conn, args, k):
+def get_features_top_k_ngrams_tokens(ids, conn, args, k, test_ids = None):
 	""" This function extracts frequent n-grams (n is specified) from the whole 
 	corpus of POI names. It selects the top-K most frequent n-gram tokens and creates
 	feature positions for each of these terms."""
@@ -167,10 +176,13 @@ def get_features_top_k_ngrams_tokens(ids, conn, args, k):
 	corpus = get_corpus(ids, conn, args, n_grams_tokens = True)
 	
 	# find top k features
-	top_k_features = get_top_k_features(corpus, args, k)
+	top_k_features, k_feat = get_top_k_features(corpus, args, k)
 	
 	# get boolean values dictating whether pois have or haven't any of the top features in their names
-	return get_poi_top_k_features(ids, conn, top_k_features, args, k)
+	if test_ids == None:
+		return get_poi_top_k_features(ids, conn, top_k_features, args, k_feat)
+	else:
+		return get_poi_top_k_features(test_ids, conn, top_k_features, args, k_feat)
 	
 def get_poi_id_to_class_centroid_similarities(ids, poi_id_to_encoded_labels_dict, encoded_labels_set, conn, args, encoded_labels_corpus_dict, test = False):
 		

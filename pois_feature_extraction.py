@@ -86,7 +86,7 @@ def get_street_id_to_closest_pois_boolean_and_counts_per_label_dict(ids, conn, t
 		dist_df = gpd.GeoDataFrame.from_postgis(sql, conn, geom_col = 'geom')
 		
 		for index, row in dist_df.iterrows():
-			if row['dist'] < threshold:
+			if row['dist'] < float(args['threshold_streets']):
 				street_id_to_closest_pois_boolean_and_counts_per_label_dict[row['edge_id']][id_to_encoded_labels_dict[row['poi_id']][0][0]][0] = 1
 				street_id_to_closest_pois_boolean_and_counts_per_label_dict[row['edge_id']][id_to_encoded_labels_dict[row['poi_id']][0][0]][1] += 1
 	
@@ -282,7 +282,7 @@ def get_poi_id_to_boolean_and_counts_per_class_dict(ids, conn, num_of_labels, po
 				point2 = (row2['x'], row2['y'])
 				# if the two points are within treshold distance, 
 				# update the dictionary accordingly
-				if distance.euclidean(point1, point2) < threshold:
+				if distance.euclidean(point1, point2) < float(args['threshold_pois']):
 					poi_id_to_label_boolean_counts_dict[row1['poi_id']][poi_id_to_encoded_labels_dict[row2['poi_id']][0][0]][0] = 1
 					poi_id_to_label_boolean_counts_dict[row1['poi_id']][poi_id_to_encoded_labels_dict[row2['poi_id']][0][0]][1] += 1
 	
