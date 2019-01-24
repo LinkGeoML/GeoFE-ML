@@ -204,7 +204,6 @@ def get_poi_id_to_class_centroid_similarities(ids, poi_id_to_encoded_labels_dict
 	
 		for key in encoded_labels_corpus_dict:
 			encoded_labels_corpus_dict[key] = [item for sublist in encoded_labels_corpus_dict[key] for item in sublist]
-	#print(encoded_labels_corpus_dict)
 		
 	poi_id_to_similarity_per_label = dict.fromkeys(ids)
 	for poi_id in poi_id_to_similarity_per_label:
@@ -222,7 +221,7 @@ def get_poi_id_to_class_centroid_similarities(ids, poi_id_to_encoded_labels_dict
 		for label in encoded_labels_corpus_dict:
 			for token in not_stopwords:
 				if token in encoded_labels_corpus_dict[label]:
-					count += 1
+					count += encoded_labels_corpus_dict[label].count(token)#1
 			
 			if len(encoded_labels_corpus_dict[label]) == 0:
 				corpus_length = 1

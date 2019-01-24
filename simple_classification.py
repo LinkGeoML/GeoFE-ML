@@ -51,11 +51,11 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 	
 	if clf_name == "SVM":
 		tuned_parameters = [{'kernel': ['rbf'], 'gamma': [1e-3, 1e-4],
-						 'C': [1, 10, 100, 1000]},
+						 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000]},
 						 {'kernel': ['poly'],
                              'degree': [1, 2, 3, 4],
-                             'C': [1, 10, 100, 1000]},
-						{'kernel': ['linear'], 'C': [1, 10, 100, 1000]}]
+                             'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000]},
+						{'kernel': ['linear'], 'C': [0.001, 0.01, 0.1, 1, 10, 100, 1000]}]
 
 		clf = SVC()
 		
@@ -64,12 +64,20 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 		clf = KNeighborsClassifier()
 		
 	elif clf_name == "Decision Tree":
-		tuned_parameters = {'max_depth': [1, 2, 3, 4, 5],
-                  'max_features': [1, 2, 3, 4]}
+		tuned_parameters = {'max_depth': [i for i in range(1,33)], 
+		'min_samples_split': list(np.linspace(0.1,1,10)),
+		'min_samples_leaf': list(np.linspace(0.1,0.5,5)),
+                  'max_features': [i for i in range(1, 10)]}
 		clf = DecisionTreeClassifier()
 		
 	elif clf_name == "Random Forest":
-		tuned_parameters = {"n_estimators": [250, 500, 1000]}
+		tuned_parameters = {'bootstrap': [True, False],
+ 'max_depth': [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, None],
+ 'criterion': ['gini', 'entropy'],
+ 'max_features': ['auto', 'sqrt'],
+ 'min_samples_leaf': [1, 2, 4],
+ 'min_samples_split': [2, 5, 10],
+ "n_estimators": [250, 500, 1000]}
 		clf = RandomForestClassifier()
 	
 	"""
@@ -98,7 +106,7 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 		print()
 
 		clf = GridSearchCV(clf, tuned_parameters, cv=4,
-						   scoring='%s' % score)
+						   scoring='%s' % score, verbose=0)
 		clf.fit(X_train, y_train)
 
 		print("Best parameters set found on development set:")
@@ -115,6 +123,89 @@ def fine_tune_parameters_given_clf(clf_name, X_train, y_train, X_test, y_test):
 		print()
 		
 	return clf
+	
+def feature_selection(X_train, X_test, y_train):
+		
+	from sklearn.feature_selection import VarianceThreshold
+	from sklearn.feature_selection import SelectKBest
+	from sklearn.feature_selection import chi2
+	from sklearn.feature_selection import SelectFromModel
+	from sklearn.feature_selection import RFECV
+	from sklearn.svm import SVC
+	from sklearn.svm import LinearSVC
+	from sklearn.model_selection import StratifiedKFold
+	
+	print("Before feature selection - X_train:{0}, X_test:{1}".format(X_train.shape, X_test.shape))	
+	
+	"""
+	# Variance Threshold feature selection
+	sel = VarianceThreshold(threshold=(.8 * (1 - .8)))
+	X_train = sel.fit_transform(X_train)
+	#print(X_train.shape)
+	feature_mask = sel.get_support()
+	X_test_new = np.zeros((X_test.shape[0], X_train.shape[1]))
+	#print(feature_mask)
+	for i in range(X_test.shape[0]):
+		count = 0
+		for j in range(X_test.shape[1]):
+			if feature_mask[j] == True:
+				X_test_new[i][count] = X_test[i][j]
+				count += 1
+	
+	
+	# Univariate feature selection
+	sel = SelectKBest(chi2, k=2)
+	X_train = sel.fit_transform(X_train, y_train)
+	feature_mask = sel.get_support()
+	X_test_new = np.zeros((X_test.shape[0], X_train.shape[1]))
+	for i in range(X_test.shape[0]):
+		count = 0
+		for j in range(X_test.shape[1]):
+			if feature_mask[j] == True:
+				X_test_new[i][count] = X_test[i][j]
+				count += 1
+		
+	# Recursive cross-validated feature elimination
+	svc = SVC(kernel="linear")
+	sel = RFECV(estimator=svc, step=1, cv=StratifiedKFold(5),
+				  scoring='accuracy')
+	sel.fit(X_train, y_train)
+	feature_mask = sel.get_support()
+	number_of_features = list(feature_mask).count(True)
+	X_train_new = np.zeros((X_train.shape[0], number_of_features))
+	X_test_new = np.zeros((X_test.shape[0], number_of_features))
+	for i in range(X_test.shape[0]):
+		count = 0
+		for j in range(X_test.shape[1]):
+			if feature_mask[j] == True:
+				X_test_new[i][count] = X_test[i][j]
+				count += 1
+				
+	for i in range(X_train.shape[0]):
+		count = 0
+		for j in range(X_train.shape[1]):
+			if feature_mask[j] == True:
+				X_train_new[i][count] = X_train[i][j]
+				count += 1
+	"""
+	
+	# L1-norm based feature selection
+	svc = LinearSVC(C=0.01, penalty="l1", dual=False).fit(X_train, y_train)
+	sel = SelectFromModel(svc, prefit=True)
+	X_train = sel.transform(X_train)
+	feature_mask = sel.get_support()
+	X_test_new = np.zeros((X_test.shape[0], X_train.shape[1]))
+	for i in range(X_test.shape[0]):
+		count = 0
+		for j in range(X_test.shape[1]):
+			if feature_mask[j] == True:
+				X_test_new[i][count] = X_test[i][j]
+				count += 1
+	
+	X_test = X_test_new
+	print("After feature selection - X_train:{0}, X_test:{1}".format(X_train.shape, X_test.shape))
+	
+	return X_train, X_test
 		
 def tuned_parameters_5_fold(poi_ids, conn, args):
 	
@@ -140,6 +231,8 @@ def tuned_parameters_5_fold(poi_ids, conn, args):
 		
 		# get train and test sets
 		X_train, y_train, X_test, y_test = get_train_test_sets(conn, args, train_ids, test_ids)
+		
+		#X_train, X_test = feature_selection(X_train, X_test, y_train)
 		
 		most_common_classes = find_10_most_common_classes_train(y_train)
 		
